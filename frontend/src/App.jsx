@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 
-// Устанавливаем соединение с сервером WebSocket
-const socket = io('http://localhost:5000');
+// Устанавливаем соединение с сервером WebSocket (используем внешний IP)
+const socket = io('http://172.19.218.55:5000');
 
 function App() {
   const [username, setUsername] = useState('');
@@ -15,9 +15,12 @@ function App() {
 
   useEffect(() => {
     // Получение сообщений при загрузке
-    axios.get('http://localhost:5000/messages')
+    axios.get('http://172.19.218.55:5000/messages')  // Убедитесь, что используете правильный IP
       .then(response => {
         setMessages(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching messages:', error);
       });
 
     // Обработчик новых сообщений через WebSocket
@@ -32,32 +35,41 @@ function App() {
 
   const handleLogin = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/login', { username, password });
+      const response = await axios.post('http://172.19.218.55:5000/login', { username, password });
       if (response.status === 200) {
         setIsLoggedIn(true);
       }
     } catch (error) {
-      alert('Login failed');
+      alert('Login failed: ' + (error.response?.data?.error || 'Unknown error'));
     }
   };
 
   const handleRegister = async () => {
+    if (!username || !password) {
+      alert('Username and password cannot be empty');
+      return;
+    }
+
     try {
-      const response = await axios.post('http://localhost:5000/register', { username, password });
+      const response = await axios.post('http://172.19.218.55:5000/register', { username, password });
       if (response.status === 201) {
         setIsRegistering(false);
       }
     } catch (error) {
-      alert('Registration failed');
+      alert('Registration failed: ' + (error.response?.data?.error || 'Unknown error'));
     }
   };
 
   const handleSendMessage = async () => {
     const timestamp = new Date().toLocaleString();
     const messageData = { username, message: newMessage, timestamp };
-    
-    await axios.post('http://localhost:5000/send_message', messageData);
-    setNewMessage('');
+
+    try {
+      await axios.post('http://172.19.218.55:5000/send_message', messageData);
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   return (
@@ -65,8 +77,18 @@ function App() {
       {!isLoggedIn ? (
         <div>
           <h2>{isRegistering ? 'Register' : 'Login'}</h2>
-          <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
           <button onClick={isRegistering ? handleRegister : handleLogin}>
             {isRegistering ? 'Register' : 'Login'}
           </button>
@@ -84,7 +106,11 @@ function App() {
               </div>
             ))}
           </div>
-          <textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Write a message..." />
+          <textarea
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Write a message..."
+          />
           <button onClick={handleSendMessage}>Send</button>
         </div>
       )}
